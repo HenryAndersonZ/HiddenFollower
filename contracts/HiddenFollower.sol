@@ -13,6 +13,12 @@ contract HiddenFollower is SepoliaConfig {
         bool active;           // active or unfollowed
     }
 
+    struct FollowingEntry {
+        eaddress followee; // encrypted followee address
+        uint256 timestamp;
+        bool active;
+    }
+
     // followee => list of encrypted followers
     mapping(address => FollowerEntry[]) private _followers;
 
@@ -21,6 +27,9 @@ contract HiddenFollower is SepoliaConfig {
 
     // Optional: encrypted follower count per followee
     mapping(address => euint32) private _followerCount;
+
+    // follower (msg.sender) => list of encrypted followees
+    mapping(address => FollowingEntry[]) private _following;
 
     event FollowAdded(address indexed followee, address indexed pseudoFollower, uint256 timestamp);
     event FollowRemoved(address indexed followee, address indexed pseudoFollower, uint256 timestamp);
@@ -58,6 +67,17 @@ contract HiddenFollower is SepoliaConfig {
         euint32 newCount = FHE.add(_followerCount[followee], FHE.asEuint32(1));
         FHE.allowThis(newCount);
         _followerCount[followee] = newCount;
+
+        // Also record following entry for the follower (msg.sender)
+        // Note: we store a trivially-encrypted handle of the followee address.
+        eaddress encFollowee = FHE.asEaddress(followee);
+        FHE.allowThis(encFollowee);
+        FHE.allow(encFollowee, msg.sender);
+        _following[msg.sender].push(FollowingEntry({
+            followee: encFollowee,
+            timestamp: block.timestamp,
+            active: true
+        }));
 
         emit FollowAdded(followee, msg.sender, block.timestamp);
     }
@@ -114,5 +134,25 @@ contract HiddenFollower is SepoliaConfig {
     function isFollowerActive(address user, uint256 index) external view returns (bool) {
         require(index < _followers[user].length, "Index out of bounds");
         return _followers[user][index].active;
+    }
+
+    /// ================= Following (who I follow) =================
+    function getEncryptedFollowing(address user, uint256 index) external view returns (eaddress) {
+        require(index < _following[user].length, "Index out of bounds");
+        return _following[user][index].followee;
+    }
+
+    function getFollowingListLength(address user) external view returns (uint256) {
+        return _following[user].length;
+    }
+
+    function getFollowingTimestamp(address user, uint256 index) external view returns (uint256) {
+        require(index < _following[user].length, "Index out of bounds");
+        return _following[user][index].timestamp;
+    }
+
+    function isFollowingActive(address user, uint256 index) external view returns (bool) {
+        require(index < _following[user].length, "Index out of bounds");
+        return _following[user][index].active;
     }
 }
