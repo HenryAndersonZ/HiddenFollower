@@ -7,10 +7,13 @@ export function Header() {
       <div className="header-container">
         <div className="header-content">
           <div className="header-left">
+            <div className="header-logo">🔒</div>
             <h1 className="header-title">HiddenFollower</h1>
-            <span className="header-badge">Powered by Zama</span>
+            <span className="header-badge">Zama Powered</span>
           </div>
-          <ConnectButton />
+          <div className="header-connect">
+            <ConnectButton />
+          </div>
         </div>
       </div>
     </header>
