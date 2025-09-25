@@ -13,8 +13,7 @@ function FollowerRow({ index, owner, onDecrypted, decrypted, decrypting, setDecr
   decrypting: number | null;
   setDecrypting: (n: number | null) => void;
 }) {
-  const { instance } = useZamaInstance();
-  const signer = useEthersSigner();
+  // Decryption handled in row component
 
   const { data: handle } = useReadContract({
     address: CONTRACT_ADDRESS,

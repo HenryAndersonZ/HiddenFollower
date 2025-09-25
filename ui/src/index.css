@@ -77,3 +77,75 @@ body {
 * {
   transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
+
+/* RainbowKit Global Overrides - Force wallet address visibility */
+
+/* All RainbowKit buttons - broader targeting */
+div[data-rk] button,
+[data-rk] button,
+button[class*="iekbcc0"] {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: 12px !important;
+  color: var(--text-primary) !important;
+  font-weight: 500 !important;
+  font-size: 14px !important;
+}
+
+/* Force all nested elements in RainbowKit buttons to be visible */
+div[data-rk] button *,
+[data-rk] button *,
+button[class*="iekbcc0"] * {
+  color: var(--text-primary) !important;
+  background: transparent !important;
+}
+
+/* Hover states */
+div[data-rk] button:hover,
+[data-rk] button:hover,
+button[class*="iekbcc0"]:hover {
+  background: var(--bg-tertiary) !important;
+  border-color: var(--accent-primary) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Specific targeting for common RainbowKit class patterns */
+button[class*="_1vwt0cg0"],
+button[class*="_1vwt0cg1"],
+button[class*="_12cbo8i3"] {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+button[class*="_1vwt0cg0"] *,
+button[class*="_1vwt0cg1"] *,
+button[class*="_12cbo8i3"] * {
+  color: var(--text-primary) !important;
+}
+
+/* RainbowKit modal styling */
+div[role="dialog"],
+div[class*="ju367v0"] {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+div[role="dialog"] *,
+div[class*="ju367v0"] * {
+  color: var(--text-primary) !important;
+}
+
+/* Force visibility for any hidden text in wallet components */
+.header-connect * {
+  color: var(--text-primary) !important;
+}
+
+/* Fallback for any remaining invisible text */
+button[aria-label*="Account"] *,
+button[title*="Account"] * {
+  color: var(--text-primary) !important;
+  opacity: 1 !important;
+}

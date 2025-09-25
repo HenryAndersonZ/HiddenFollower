@@ -91,7 +91,25 @@
   position: relative;
 }
 
-.header-connect button {
+/* RainbowKit button customization */
+.header-connect [data-testid="connect-button"] {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: 12px !important;
+  color: var(--text-primary) !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+  font-size: 14px !important;
+}
+
+.header-connect [data-testid="connect-button"]:hover {
+  background: var(--bg-tertiary) !important;
+  border-color: var(--accent-primary) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.header-connect [data-testid="account-button"] {
   background: var(--bg-card) !important;
   border: 1px solid var(--border-primary) !important;
   border-radius: 12px !important;
@@ -100,11 +118,35 @@
   transition: all 0.2s ease !important;
 }
 
-.header-connect button:hover {
+.header-connect [data-testid="account-button"]:hover {
   background: var(--bg-tertiary) !important;
   border-color: var(--accent-primary) !important;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* More specific targeting for wallet address */
+.header-connect button,
+.header-connect button > div,
+.header-connect button span {
+  color: var(--text-primary) !important;
+}
+
+/* RainbowKit modal styling */
+div[role="dialog"] {
+  color: var(--text-primary) !important;
+}
+
+/* Account button specific styling */
+.header-connect button[aria-label*="Account"] {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.header-connect button[aria-label*="Account"]:hover {
+  background: var(--bg-tertiary) !important;
+  border-color: var(--accent-primary) !important;
 }
 
 /* Responsive Design */
