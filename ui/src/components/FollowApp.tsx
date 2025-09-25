@@ -12,6 +12,9 @@ export function FollowApp() {
       <Header />
       <main className="main-content">
         <div>
+          <p>You can follow other address. Keep these addresses in secret by FHE encrypted.</p>
+        </div>
+        <div>
           <div className="tab-navigation">
             <nav className="tab-nav">
               <button
