@@ -8,7 +8,7 @@ export function Header() {
         <div className="header-content">
           <div className="header-left">
             <h1 className="header-title">HiddenFollower</h1>
-            <span className="header-badge">Zama FHE</span>
+            <span className="header-badge">Powered by Zama</span>
           </div>
           <ConnectButton />
         </div>

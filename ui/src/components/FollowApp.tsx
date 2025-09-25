@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { Header } from './Header';
 import { FollowForm } from './FollowForm';
 import { FollowersList } from './FollowersList';
+import { FollowingList } from './FollowingList';
 import '../styles/FollowApp.css';
 
 export function FollowApp() {
-  const [activeTab, setActiveTab] = useState<'follow' | 'followers'>('follow');
+  const [activeTab, setActiveTab] = useState<'follow' | 'following' | 'followers'>('follow');
 
   return (
     <div className="hf-app">
@@ -24,6 +25,12 @@ export function FollowApp() {
                 Follow
               </button>
               <button
+                onClick={() => setActiveTab('following')}
+                className={`tab-button ${activeTab === 'following' ? 'active' : 'inactive'}`}
+              >
+                My Following
+              </button>
+              <button
                 onClick={() => setActiveTab('followers')}
                 className={`tab-button ${activeTab === 'followers' ? 'active' : 'inactive'}`}
               >
@@ -33,10 +40,10 @@ export function FollowApp() {
           </div>
 
           {activeTab === 'follow' && <FollowForm />}
+          {activeTab === 'following' && <FollowingList />}
           {activeTab === 'followers' && <FollowersList />}
         </div>
       </main>
     </div>
   );
 }
-
