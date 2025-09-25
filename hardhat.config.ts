@@ -1,4 +1,5 @@
 import "@fhevm/hardhat-plugin";
+import "dotenv/config";
 import "@nomicfoundation/hardhat-chai-matchers";
 import "@nomicfoundation/hardhat-ethers";
 import "@nomicfoundation/hardhat-verify";
@@ -16,7 +17,10 @@ import "./tasks/HiddenFollower";
 // Run 'npx hardhat vars setup' to see the list of variables that need to be set
 
 const MNEMONIC: string = vars.get("MNEMONIC", "test test test test test test test test test test test junk");
-const INFURA_API_KEY: string = vars.get("INFURA_API_KEY", "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz");
+const INFURA_API_KEY: string = process.env.INFURA_API_KEY || vars.get("INFURA_API_KEY", "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz");
+const PRIVATE_KEY: string | undefined = process.env.PRIVATE_KEY
+  ? (process.env.PRIVATE_KEY.startsWith("0x") ? process.env.PRIVATE_KEY : `0x${process.env.PRIVATE_KEY}`)
+  : undefined;
 
 const config: HardhatUserConfig = {
   defaultNetwork: "hardhat",
@@ -50,7 +54,7 @@ const config: HardhatUserConfig = {
       url: "http://localhost:8545",
     },
     sepolia: {
-      accounts: {
+      accounts: PRIVATE_KEY ? [PRIVATE_KEY] : {
         mnemonic: MNEMONIC,
         path: "m/44'/60'/0'/0/",
         count: 10,
