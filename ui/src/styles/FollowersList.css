@@ -1,0 +1,12 @@
+.followers-container { max-width: 42rem; margin: 0 auto; }
+.card { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.06); border-radius: .5rem; padding: 1.5rem; }
+.title { font-size: 1.25rem; font-weight: 700; color: #111827; margin-bottom: 1rem; }
+.list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .75rem; }
+.row { display: flex; align-items: center; justify-content: space-between; padding: .75rem; border: 1px solid #e5e7eb; border-radius: .375rem; }
+.row-left { display: flex; gap: .75rem; align-items: center; }
+.masked { color: #6b7280; }
+.row-actions { display: flex; gap: .75rem; align-items: center; }
+.decrypt-button { background: #2563eb; color: #fff; padding: .375rem .75rem; border-radius: .375rem; border: none; font-size: .875rem; cursor: pointer; }
+.decrypt-button:disabled { background: #9ca3af; cursor: not-allowed; }
+.decrypted { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; color: #065f46; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: .375rem; padding: .25rem .5rem; }
+
