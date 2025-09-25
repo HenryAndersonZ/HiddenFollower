@@ -1,94 +1,118 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {FHE, euint32, eaddress, externalEaddress} from "@fhevm/solidity/lib/FHE.sol";
+import {FHE, eaddress, externalEaddress, euint32} from "@fhevm/solidity/lib/FHE.sol";
 import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 
+/// @title HiddenFollower - Encrypted follower relationships
+/// @notice Stores encrypted real follower addresses while exposing only pseudonymous public relations
 contract HiddenFollower is SepoliaConfig {
-    struct EncryptedFollower {
-        eaddress encryptedFollowerAddress;
-        uint256 timestamp;
-        bool isActive;
+    struct FollowerEntry {
+        eaddress realFollower; // encrypted real follower address
+        uint256 timestamp;     // follow timestamp
+        bool active;           // active or unfollowed
     }
 
-    mapping(address => EncryptedFollower[]) private followers;
-    mapping(address => euint32) private followerCounts;
+    // followee => list of encrypted followers
+    mapping(address => FollowerEntry[]) private _followers;
+
+    // followee => pseudo follower (msg.sender) => whether currently following
     mapping(address => mapping(address => bool)) public isFollowingPublic;
+
+    // Optional: encrypted follower count per followee
+    mapping(address => euint32) private _followerCount;
 
     event FollowAdded(address indexed followee, address indexed pseudoFollower, uint256 timestamp);
     event FollowRemoved(address indexed followee, address indexed pseudoFollower, uint256 timestamp);
 
+    /// @notice Follow an address with encrypted real follower
+    /// @param followee The address being followed
+    /// @param encryptedRealFollower Encrypted real follower address (eaddress handle)
+    /// @param inputProof The input proof produced by the relayer SDK
     function follow(address followee, externalEaddress encryptedRealFollower, bytes calldata inputProof) external {
-        require(followee != address(0), "Invalid followee address");
-        require(!isFollowingPublic[msg.sender][followee], "Already following");
+        require(followee != address(0), "Invalid followee");
+        require(!isFollowingPublic[followee][msg.sender], "Already following");
 
+        // Import the encrypted address from external input
         eaddress realFollower = FHE.fromExternal(encryptedRealFollower, inputProof);
 
-        EncryptedFollower memory newFollower = EncryptedFollower({
-            encryptedFollowerAddress: realFollower,
+        // append entry
+        _followers[followee].push(FollowerEntry({
+            realFollower: realFollower,
             timestamp: block.timestamp,
-            isActive: true
-        });
+            active: true
+        }));
 
-        followers[followee].push(newFollower);
-
-        euint32 currentCount = followerCounts[followee];
-        followerCounts[followee] = FHE.add(currentCount, FHE.asEuint32(1));
-
-        isFollowingPublic[msg.sender][followee] = true;
-
+        // Access control: allow contract, followee, and the follower (msg.sender) to decrypt the follower address
         FHE.allowThis(realFollower);
         FHE.allow(realFollower, followee);
-        FHE.allowThis(followerCounts[followee]);
-        FHE.allow(followerCounts[followee], followee);
+        FHE.allow(realFollower, msg.sender);
+
+        // Public mapping marks the pseudo follower (msg.sender) as following
+        isFollowingPublic[followee][msg.sender] = true;
+
+        // Maintain encrypted follower count (active count)
+        // Note: We keep a running counter, not recomputing from array.
+        //       Uses FHE.asEuint32(1) as a constant increment.
+        // Update encrypted follower count and maintain ACL for subsequent operations
+        euint32 newCount = FHE.add(_followerCount[followee], FHE.asEuint32(1));
+        FHE.allowThis(newCount);
+        _followerCount[followee] = newCount;
 
         emit FollowAdded(followee, msg.sender, block.timestamp);
     }
 
+    /// @notice Unfollow a previously followed address
+    /// @dev Marks the most recent active follow relation from this pseudo follower as inactive
     function unfollow(address followee) external {
-        require(isFollowingPublic[msg.sender][followee], "Not following");
+        require(isFollowingPublic[followee][msg.sender], "Not following");
 
-        EncryptedFollower[] storage userFollowers = followers[followee];
+        // Walk backwards to find the most recent active entry
+        FollowerEntry[] storage list = _followers[followee];
+        for (uint256 i = list.length; i > 0; i--) {
+            FollowerEntry storage entry = list[i - 1];
+            if (entry.active) {
+                entry.active = false;
 
-        for (uint256 i = 0; i < userFollowers.length; ++i) {
-            if (userFollowers[i].isActive) {
-                userFollowers[i].isActive = false;
-                break;
+                // decrement encrypted follower count and maintain ACL
+                euint32 newCount = FHE.sub(_followerCount[followee], FHE.asEuint32(1));
+                FHE.allowThis(newCount);
+                _followerCount[followee] = newCount;
+
+                isFollowingPublic[followee][msg.sender] = false;
+                emit FollowRemoved(followee, msg.sender, block.timestamp);
+                return;
             }
         }
 
-        euint32 currentCount = followerCounts[followee];
-        followerCounts[followee] = FHE.sub(currentCount, FHE.asEuint32(1));
-
-        isFollowingPublic[msg.sender][followee] = false;
-
-        FHE.allowThis(followerCounts[followee]);
-        FHE.allow(followerCounts[followee], followee);
-
-        emit FollowRemoved(followee, msg.sender, block.timestamp);
+        revert("No active follow found");
     }
 
-    function getFollowerCount(address user) external view returns (euint32) {
-        return followerCounts[user];
-    }
-
+    /// @notice Returns the encrypted real follower address handle for an entry
     function getEncryptedFollower(address user, uint256 index) external view returns (eaddress) {
-        require(index < followers[user].length, "Index out of bounds");
-        require(followers[user][index].isActive, "Follower inactive");
-        return followers[user][index].encryptedFollowerAddress;
+        require(index < _followers[user].length, "Index out of bounds");
+        return _followers[user][index].realFollower;
     }
 
+    /// @notice Returns the encrypted number of currently active followers for a user
+    function getFollowerCount(address user) external view returns (euint32) {
+        return _followerCount[user];
+    }
+
+    /// @notice Returns the follower list length (including inactive entries)
     function getFollowerListLength(address user) external view returns (uint256) {
-        return followers[user].length;
+        return _followers[user].length;
     }
 
-    function isFollowerActive(address user, uint256 index) external view returns (bool) {
-        require(index < followers[user].length, "Index out of bounds");
-        return followers[user][index].isActive;
-    }
-
+    /// @notice Returns the timestamp for a follower entry
     function getFollowerTimestamp(address user, uint256 index) external view returns (uint256) {
-        require(index < followers[user].length, "Index out of bounds");
-        return followers[user][index].timestamp;
+        require(index < _followers[user].length, "Index out of bounds");
+        return _followers[user][index].timestamp;
+    }
+
+    /// @notice Returns whether a follower entry is currently active
+    function isFollowerActive(address user, uint256 index) external view returns (bool) {
+        require(index < _followers[user].length, "Index out of bounds");
+        return _followers[user][index].active;
     }
 }
