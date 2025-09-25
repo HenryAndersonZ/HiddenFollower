@@ -1,56 +1,37 @@
 import { task } from "hardhat/config";
-import type { TaskArguments } from "hardhat/types";
 
-task("deploy:hidden-follower")
-  .setDescription("Deploy the HiddenFollower contract")
-  .setAction(async function (taskArguments: TaskArguments, { ethers, deployments }) {
-    console.log("Deploying HiddenFollower contract...");
+task("hf:follow", "Follow a user with encrypted real follower")
+  .addParam("contract", "HiddenFollower contract address")
+  .addParam("followee", "Followee address")
+  .setAction(async (args, hre) => {
+    const [signer] = await hre.ethers.getSigners();
+    const contract = await hre.ethers.getContractAt("HiddenFollower", args.contract, signer);
 
-    const result = await deployments.run(["HiddenFollower"], {
-      resetMemory: false,
-      deletePreviousDeployments: false,
-    });
-
-    console.log("HiddenFollower deployed at:", result["HiddenFollower"].address);
-    return result["HiddenFollower"].address;
+    // In a real flow, the client should build encrypted input using fhevm/relayer SDK.
+    // Here, we can't build it in a task without relayer. So we only show the signature.
+    console.log("Use frontend/relayer to produce encrypted input and call 'follow' directly.");
+    console.log("Function signature:", "follow(address,bytes32,bytes)");
+    console.log({ followee: args.followee });
   });
 
-task("follow:user")
-  .addParam("contract", "The contract address")
-  .addParam("followee", "Address to follow")
-  .addParam("realfollower", "Real follower address (will be encrypted)")
-  .setDescription("Follow a user anonymously")
-  .setAction(async function (taskArguments: TaskArguments, { ethers, fhevm }) {
-    const { contract, followee, realfollower } = taskArguments;
-
-    const [signer] = await ethers.getSigners();
-    const hiddenFollowerContract = await ethers.getContractAt("HiddenFollower", contract);
-
-    console.log(`Following ${followee} with encrypted real address ${realfollower}...`);
-
-    // Create encrypted input
-    const input = fhevm.createEncryptedInput(contract, signer.address);
-    input.addAddress(realfollower);
-    const encryptedInput = await input.encrypt();
-
-    const tx = await hiddenFollowerContract.follow(followee, encryptedInput.handles[0], encryptedInput.inputProof);
-
+task("hf:unfollow", "Unfollow a user")
+  .addParam("contract", "HiddenFollower contract address")
+  .addParam("followee", "Followee address")
+  .setAction(async (args, hre) => {
+    const [signer] = await hre.ethers.getSigners();
+    const contract = await hre.ethers.getContractAt("HiddenFollower", args.contract, signer);
+    const tx = await contract.unfollow(args.followee);
+    console.log("unfollow tx:", tx.hash);
     await tx.wait();
-    console.log(`Successfully followed! Transaction: ${tx.hash}`);
+    console.log("unfollow confirmed");
   });
 
-task("get:follower-count")
-  .addParam("contract", "The contract address")
-  .addParam("user", "User address to check")
-  .setDescription("Get encrypted follower count for a user")
-  .setAction(async function (taskArguments: TaskArguments, { ethers }) {
-    const { contract, user } = taskArguments;
-
-    const hiddenFollowerContract = await ethers.getContractAt("HiddenFollower", contract);
-
-    const encryptedCount = await hiddenFollowerContract.getFollowerCount(user);
-    console.log(`Encrypted follower count for ${user}: ${encryptedCount}`);
-
-    const listLength = await hiddenFollowerContract.getFollowerListLength(user);
-    console.log(`Total follower list length: ${listLength}`);
+task("hf:len", "Get follower list length of a user")
+  .addParam("contract", "HiddenFollower contract address")
+  .addParam("user", "User address")
+  .setAction(async (args, hre) => {
+    const [signer] = await hre.ethers.getSigners();
+    const contract = await hre.ethers.getContractAt("HiddenFollower", args.contract, signer);
+    const len = await contract.getFollowerListLength(args.user);
+    console.log("length:", len.toString());
   });

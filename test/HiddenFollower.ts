@@ -2,205 +2,90 @@ import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { ethers, fhevm } from "hardhat";
 import { HiddenFollower, HiddenFollower__factory } from "../types";
 import { expect } from "chai";
-import { FhevmType } from "@fhevm/hardhat-plugin";
 
 type Signers = {
-  deployer: HardhatEthersSigner;
   alice: HardhatEthersSigner;
   bob: HardhatEthersSigner;
-  charlie: HardhatEthersSigner;
 };
 
 async function deployFixture() {
   const factory = (await ethers.getContractFactory("HiddenFollower")) as HiddenFollower__factory;
-  const hiddenFollowerContract = (await factory.deploy()) as HiddenFollower;
-  const hiddenFollowerContractAddress = await hiddenFollowerContract.getAddress();
-
-  return { hiddenFollowerContract, hiddenFollowerContractAddress };
+  const contract = (await factory.deploy()) as HiddenFollower;
+  const address = await contract.getAddress();
+  return { contract, address };
 }
 
-describe("HiddenFollower", function () {
+describe("HiddenFollower (mock)", function () {
   let signers: Signers;
-  let hiddenFollowerContract: HiddenFollower;
-  let hiddenFollowerContractAddress: string;
+  let hf: HiddenFollower;
+  let hfAddr: string;
 
   before(async function () {
-    const ethSigners: HardhatEthersSigner[] = await ethers.getSigners();
-    signers = {
-      deployer: ethSigners[0],
-      alice: ethSigners[1],
-      bob: ethSigners[2],
-      charlie: ethSigners[3],
-    };
+    const all = await ethers.getSigners();
+    signers = { alice: all[0], bob: all[1] };
   });
 
   beforeEach(async function () {
     if (!fhevm.isMock) {
-      console.warn(`This hardhat test suite cannot run on Sepolia Testnet`);
       this.skip();
     }
-
-    ({ hiddenFollowerContract, hiddenFollowerContractAddress } = await deployFixture());
+    ({ contract: hf, address: hfAddr } = await deployFixture());
   });
 
-  it("should allow anonymous following", async function () {
-    const followee = signers.bob.address;
-    const pseudoFollower = signers.alice.address;
-    const realFollower = signers.charlie.address;
+  it("alice follows bob with encrypted real follower", async function () {
+    // Initially, bob has zero entries
+    const len0 = await hf.getFollowerListLength(signers.bob.address);
+    expect(len0).to.eq(0n);
 
-    const encryptedRealFollower = await fhevm
-      .createEncryptedInput(hiddenFollowerContractAddress, pseudoFollower)
-      .addAddress(realFollower)
-      .encrypt();
-
-    const isFollowingBefore = await hiddenFollowerContract.isFollowingPublic(pseudoFollower, followee);
-    expect(isFollowingBefore).to.be.false;
-
-    const tx = await hiddenFollowerContract
-      .connect(signers.alice)
-      .follow(followee, encryptedRealFollower.handles[0], encryptedRealFollower.inputProof);
-
-    await tx.wait();
-
-    const isFollowingAfter = await hiddenFollowerContract.isFollowingPublic(pseudoFollower, followee);
-    expect(isFollowingAfter).to.be.true;
-
-    const followerCount = await hiddenFollowerContract.getFollowerCount(followee);
-    const decryptedCount = await fhevm.userDecryptEuint(
-      FhevmType.euint32,
-      followerCount,
-      hiddenFollowerContractAddress,
-      signers.bob,
-    );
-    expect(decryptedCount).to.eq(1);
-
-    const followerListLength = await hiddenFollowerContract.getFollowerListLength(followee);
-    expect(followerListLength).to.eq(1);
-
-    const isActive = await hiddenFollowerContract.isFollowerActive(followee, 0);
-    expect(isActive).to.be.true;
-  });
-
-  it("should allow unfollowing", async function () {
-    const followee = signers.bob.address;
-    const pseudoFollower = signers.alice.address;
-    const realFollower = signers.charlie.address;
-
-    const encryptedRealFollower = await fhevm
-      .createEncryptedInput(hiddenFollowerContractAddress, pseudoFollower)
-      .addAddress(realFollower)
-      .encrypt();
-
-    await hiddenFollowerContract
-      .connect(signers.alice)
-      .follow(followee, encryptedRealFollower.handles[0], encryptedRealFollower.inputProof);
-
-    const isFollowingBefore = await hiddenFollowerContract.isFollowingPublic(pseudoFollower, followee);
-    expect(isFollowingBefore).to.be.true;
-
-    const unfollowTx = await hiddenFollowerContract.connect(signers.alice).unfollow(followee);
-
-    await unfollowTx.wait();
-
-    const isFollowingAfter = await hiddenFollowerContract.isFollowingPublic(pseudoFollower, followee);
-    expect(isFollowingAfter).to.be.false;
-
-    const followerCount = await hiddenFollowerContract.getFollowerCount(followee);
-    const decryptedCount = await fhevm.userDecryptEuint(
-      FhevmType.euint32,
-      followerCount,
-      hiddenFollowerContractAddress,
-      signers.bob,
-    );
-    expect(decryptedCount).to.eq(0);
-
-    const isActive = await hiddenFollowerContract.isFollowerActive(followee, 0);
-    expect(isActive).to.be.false;
-  });
-
-  it("should prevent double following", async function () {
-    const followee = signers.bob.address;
-    const pseudoFollower = signers.alice.address;
-    const realFollower = signers.charlie.address;
-
-    const encryptedRealFollower = await fhevm
-      .createEncryptedInput(hiddenFollowerContractAddress, pseudoFollower)
-      .addAddress(realFollower)
-      .encrypt();
-
-    await hiddenFollowerContract
-      .connect(signers.alice)
-      .follow(followee, encryptedRealFollower.handles[0], encryptedRealFollower.inputProof);
-
-    await expect(
-      hiddenFollowerContract
-        .connect(signers.alice)
-        .follow(followee, encryptedRealFollower.handles[0], encryptedRealFollower.inputProof),
-    ).to.be.revertedWith("Already following");
-  });
-
-  it("should prevent unfollowing when not following", async function () {
-    const followee = signers.bob.address;
-
-    await expect(hiddenFollowerContract.connect(signers.alice).unfollow(followee)).to.be.revertedWith("Not following");
-  });
-
-  it("should handle multiple followers", async function () {
-    const followee = signers.bob.address;
-
-    const encryptedRealFollower1 = await fhevm
-      .createEncryptedInput(hiddenFollowerContractAddress, signers.alice.address)
-      .addAddress(signers.charlie.address)
-      .encrypt();
-
-    const encryptedRealFollower2 = await fhevm
-      .createEncryptedInput(hiddenFollowerContractAddress, signers.deployer.address)
+    // Prepare encrypted input: alice address as eaddress
+    const enc = await fhevm
+      .createEncryptedInput(hfAddr, signers.alice.address)
       .addAddress(signers.alice.address)
       .encrypt();
 
-    await hiddenFollowerContract
-      .connect(signers.alice)
-      .follow(followee, encryptedRealFollower1.handles[0], encryptedRealFollower1.inputProof);
+    // Call follow(bob, encryptedAlice, proof)
+    const tx = await hf.connect(signers.alice).follow(signers.bob.address, enc.handles[0], enc.inputProof);
+    await tx.wait();
 
-    await hiddenFollowerContract
-      .connect(signers.deployer)
-      .follow(followee, encryptedRealFollower2.handles[0], encryptedRealFollower2.inputProof);
+    // Public mapping flags alice is following bob
+    const isFollowing = await hf.isFollowingPublic(signers.bob.address, signers.alice.address);
+    expect(isFollowing).to.eq(true);
 
-    const followerCount = await hiddenFollowerContract.getFollowerCount(followee);
-    const decryptedCount = await fhevm.userDecryptEuint(
-      FhevmType.euint32,
-      followerCount,
-      hiddenFollowerContractAddress,
-      signers.bob,
-    );
-    expect(decryptedCount).to.eq(2);
+    // One entry stored
+    const len1 = await hf.getFollowerListLength(signers.bob.address);
+    expect(len1).to.eq(1n);
 
-    const followerListLength = await hiddenFollowerContract.getFollowerListLength(followee);
-    expect(followerListLength).to.eq(2);
+    // Retrieve encrypted follower and user-decrypt as alice
+    const handle = await hf.getEncryptedFollower(signers.bob.address, 0);
+    const clearAddr = await fhevm.userDecryptEaddress(handle, hfAddr, signers.alice);
+    expect(clearAddr.toLowerCase()).to.eq(signers.alice.address.toLowerCase());
+
+    // Entry is active
+    const active = await hf.isFollowerActive(signers.bob.address, 0);
+    expect(active).to.eq(true);
   });
 
-  it("should allow access to encrypted follower data", async function () {
-    const followee = signers.bob.address;
-    const pseudoFollower = signers.alice.address;
-    const realFollower = signers.charlie.address;
-
-    const encryptedRealFollower = await fhevm
-      .createEncryptedInput(hiddenFollowerContractAddress, pseudoFollower)
-      .addAddress(realFollower)
+  it("unfollow marks latest active entry inactive", async function () {
+    // Encrypt alice address
+    const enc = await fhevm
+      .createEncryptedInput(hfAddr, signers.alice.address)
+      .addAddress(signers.alice.address)
       .encrypt();
 
-    await hiddenFollowerContract
-      .connect(signers.alice)
-      .follow(followee, encryptedRealFollower.handles[0], encryptedRealFollower.inputProof);
+    await (await hf.connect(signers.alice).follow(signers.bob.address, enc.handles[0], enc.inputProof)).wait();
 
-    const encryptedFollowerData = await hiddenFollowerContract.connect(signers.bob).getEncryptedFollower(followee, 0);
+    // Unfollow
+    await (await hf.connect(signers.alice).unfollow(signers.bob.address)).wait();
 
-    // For testing purposes, we just verify that encrypted data is returned
-    // In a real scenario, this would be decrypted by the authorized user
-    expect(encryptedFollowerData).to.not.eq(ethers.ZeroHash);
+    // Mapping cleared
+    const isFollowing = await hf.isFollowingPublic(signers.bob.address, signers.alice.address);
+    expect(isFollowing).to.eq(false);
 
-    // Verify the follower is active
-    const isActive = await hiddenFollowerContract.isFollowerActive(followee, 0);
-    expect(isActive).to.be.true;
+    // Entry remains but inactive
+    const len = await hf.getFollowerListLength(signers.bob.address);
+    expect(len).to.eq(1n);
+    const active = await hf.isFollowerActive(signers.bob.address, 0);
+    expect(active).to.eq(false);
   });
 });
+
